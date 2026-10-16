@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AquaPulse ASV-UUV Tandem System | Autonomous Ocean Intelligence Simulator</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS for Nautical Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Tactical Bar -->
+  <header class="top-bar">
+    <div class="brand-section">
+      <div class="brand-icon">⚓</div>
+      <div class="brand-text">
+        <h1>AQUAPULSE ASV-UUV <span class="tag">TANDEM v2.4</span></h1>
+        <p>Solar Surface Pilot Vessel & Tethered Deep-Probe Submarine System</p>
+      </div>
+    </div>
+
+    <div class="header-status-strip">
+      <div class="status-pill online">
+        <span class="dot"></span>
+        <span>SYS: <b id="topSysStatus">PATROL ACTIVE</b></span>
+      </div>
+      <div class="status-pill sat">
+        <span class="dot"></span>
+        <span>SAT: <b id="topSatStatus">STARLINK LEO 18ms</b></span>
+      </div>
+      <div class="status-pill">
+        <span>☀️ SOLAR: <b id="topSolarWatts">845 W</b></span>
+      </div>
+      <div class="status-pill">
+        <span>🔋 BATT: <b id="topBattPct">94.2%</b></span>
+      </div>
+      <div class="status-pill">
+        <span>⚓ SUB DEPTH: <b id="topSubDepth">45.0 m</b></span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-tactical" id="btnToggleSim">⏸️ Pause</button>
+      <button class="btn-tactical danger" id="btnEmergencySurface">🚨 Emergency Surface</button>
+      <button class="btn-tactical primary" id="btnExportData">📥 Export Gov DB Log</button>
+    </div>
+  </header>
+
+  <!-- Navigation View Tabs -->
+  <nav class="view-tabs">
+    <button class="tab-btn active" data-tab="tab-map">🗺️ Tactical Nautical Map & Route</button>
+    <button class="tab-btn" data-tab="tab-ocean">🌊 Subsea Tandem Cutaway & Sonar</button>
+    <button class="tab-btn" data-tab="tab-ai-vision">🐟 AI Fish Quality & Biomass Lab</button>
+    <button class="tab-btn" data-tab="tab-gov">🏛️ Government Central Dashboard</button>
+    <button class="tab-btn" data-tab="tab-radar">📡 Radar, AIS & Marine Comms</button>
+    <button class="tab-btn" data-tab="tab-controls">⚙️ Physics & Parameter Controls</button>
+  </nav>
+
+  <!-- Main Workspace -->
+  <main class="dashboard-container">
+
+    <!-- ==================== TAB 1: TACTICAL NAUTICAL MAP & ROUTE ==================== -->
+    <section id="tab-map" class="tab-content active">
+      <div class="grid-main-side">
+        <!-- Left: Map Area -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🌐 Live Ocean Trajectory & Territorial Zones</span>
+            <span class="card-badge" id="mapCoordDisplay">LAT: 09°55'48"N | LON: 76°16'02"E</span>
+          </div>
+
+          <!-- Route selection pills -->
+          <div class="route-selector-grid">
+            <div class="route-card-btn active" onclick="selectPresetRoute(0)">
+              <h4>📍 Route Alpha: Cochin Offshore Shelf</h4>
+              <p>Harbour Channel → Chetwai Bank → 12nm Territorial Transect</p>
+            </div>
+            <div class="route-card-btn" onclick="selectPresetRoute(1)">
+              <h4>📍 Route Bravo: Vizhinjam Deep Canyon</h4>
+              <p>Deep Container Port → Wadge Bank Fishery → Coral Sanctuary</p>
+            </div>
+            <div class="route-card-btn" onclick="selectPresetRoute(2)">
+              <h4>📍 Route Charlie: Lakshadweep Sea Pelagic</h4>
+              <p>Deep Tuna Migration Corridor → High-Seas Ecosystem Survey</p>
+            </div>
+          </div>
+
+          <div id="nauticalMap"></div>
+          
+          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
+            <div>
+              <span style="display:inline-block; width:12px; height:12px; background:#00f2ff; border-radius:50%; margin-right:4px;"></span> AquaPulse ASV 
+              <span style="display:inline-block; width:12px; height:12px; background:#ffb700; border-radius:50%; margin:0 4px 0 14px;"></span> Tethered Sub Probe 
+              <span style="display:inline-block; width:12px; height:12px; background:#00ff88; margin:0 4px 0 14px;"></span> Port Base 
+              <span style="display:inline-block; width:12px; height:12px; background:rgba(255,51,102,0.4); margin:0 4px 0 14px;"></span> Marine Protected Area (MPA)
+            </div>
+            <div style="font-family: var(--font-mono);">
+              SIM SPEED: 
+              <button class="btn-tactical" style="padding:2px 8px; font-size:0.7rem;" onclick="setWarpSpeed(1)">1x</button>
+              <button class="btn-tactical" style="padding:2px 8px; font-size:0.7rem;" onclick="setWarpSpeed(2)">2x</button>
+              <button class="btn-tactical" style="padding:2px 8px; font-size:0.7rem;" onclick="setWarpSpeed(5)">5x</button>
+              <button class="btn-tactical" style="padding:2px 8px; font-size:0.7rem;" onclick="setWarpSpeed(10)">10x</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Vessel Telemetry Sidebar -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🧭 Navigation & Drive System</span>
+            <span class="card-badge">COLREGS AUTO</span>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">Speed (SOG)</div>
+              <div class="value" id="dispSpeed">4.8 <span class="unit">kts</span></div>
+              <div class="subtext">Throttle: 65%</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">True Heading</div>
+              <div class="value" id="dispHeading">268° <span class="unit">T</span></div>
+              <div class="subtext">Yaw: ±0.4°</div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">Course Over Ground</div>
+              <div class="value" id="dispCog">270.2° <span class="unit">M</span></div>
+              <div class="subtext">Drift: 0.3 kts</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">Distance to Next WP</div>
+              <div class="value" id="dispDistWp">2.4 <span class="unit">nm</span></div>
+              <div class="subtext" id="dispWpName">WP-03 (Shelf End)</div>
+            </div>
+          </div>
+
+          <div class="card-header" style="margin-top: 14px;">
+            <span class="card-title">⚡ Power Management & Solar Deck</span>
+          </div>
+
+          <div class="metric-tile" style="margin-bottom: 12px;">
+            <div class="label">Solar Deck Generation</div>
+            <div class="value" id="dispSolarWatts">845 <span class="unit">W</span></div>
+            <div class="subtext" id="dispSolarEff">Bifacial PV: 98.4% MPPT Efficiency</div>
+          </div>
+
+          <div class="metric-tile" style="margin-bottom: 12px;">
+            <div class="label">LiFePO4 Energy Reservoir</div>
+            <div class="value" id="dispBattKwh">9.6 <span class="unit">/ 10.2 kWh</span></div>
+            <div class="subtext" id="dispBattState">Net Charging (+280W Surplus)</div>
+          </div>
+
+          <div class="metric-tile">
+            <div class="label">Mission Autonomy Endurance</div>
+            <div class="value">94.6 <span class="unit">hours</span></div>
+            <div class="subtext">Unlimited under tropical daylight</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: SUBSEA TANDEM CUTAWAY & SONAR ==================== -->
+    <section id="tab-ocean" class="tab-content">
+      <div class="grid-main-side">
+        <!-- Ocean 2D Dynamic Canvas -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🌊 Dynamic Subsea Tandem Vertical Profile</span>
+            <span class="card-badge">60 FPS REAL-TIME PHYSICS</span>
+          </div>
+
+          <div class="canvas-container">
+            <canvas id="oceanCutawayCanvas" width="980" height="480"></canvas>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">
+            <span>SURFACE: 0m (Solar ASV Catamaran)</span>
+            <span>THERMOCLINE LAYER: ~35m</span>
+            <span>TARGET PROBE DEPTH: <b id="subVisualDepth" style="color:var(--cyan-glow)">45.0m</b></span>
+            <span>SEABED: 120m</span>
+          </div>
+        </div>
+
+        <!-- Subsea Probe Diagnostics -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🤖 Tethered Probe Diagnostics</span>
+            <span class="card-badge">PRESSURE: 5.5 BAR</span>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">Current Probe Depth</div>
+              <div class="value" id="dispProbeDepth">45.0 <span class="unit">m</span></div>
+              <div class="subtext">Target: 45.0 m</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">Umbilical Payout</div>
+              <div class="value" id="dispUmbilicalLen">48.2 <span class="unit">m</span></div>
+              <div class="subtext">Tension: 82.4 N</div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">Subsea Water Temp</div>
+              <div class="value" id="dispProbeTemp">24.6 <span class="unit">°C</span></div>
+              <div class="subtext">Gradient: -0.12°C/m</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">Active Thruster RPM</div>
+              <div class="value" id="dispThrusterRpm">1,450 <span class="unit">RPM</span></div>
+              <div class="subtext">Pitch: -1.2° | Roll: 0.1°</div>
+            </div>
+          </div>
+
+          <div class="metric-tile" style="margin-bottom: 12px;">
+            <div class="label">Active Heave Compensation Winch</div>
+            <div class="value">ACTIVE <span class="unit">| Wave Slip ±0.15m</span></div>
+            <div class="subtext">Fiber Optical Rotary Joint: 0.14 dB loss</div>
+          </div>
+
+          <div class="metric-tile">
+            <div class="label">Multibeam Imaging Sonar Swath</div>
+            <div class="value">120° <span class="unit">| 720 kHz High-Res</span></div>
+            <div class="subtext">Benthic Acoustic Profiling: CLEAR</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: AI FISH QUALITY & BIOMASS LAB ==================== -->
+    <section id="tab-ai-vision" class="tab-content">
+      <div class="grid-main-side">
+        <!-- Live AI Stream with Bounding Boxes -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">👁️ Live Subsea Computer Vision (YOLOv10-Marine)</span>
+            <span class="card-badge" style="color:var(--green-radar);">550 TOPS ORIN EDGE INFERENCE</span>
+          </div>
+
+          <div class="camera-feed-box">
+            <canvas id="aiCameraCanvas" width="800" height="400"></canvas>
+            <div class="feed-overlay-hud">
+              <div>
+                CAM 01: STEREO 4K LOW-LIGHT SENSOR<br>
+                EXPOSURE: AUTO | ISO: 400 | DEPTH: <span id="camDepthHud">45.0m</span>
+              </div>
+              <div class="rec-indicator">
+                <span class="rec-dot"></span> LIVE EDGE STREAM
+              </div>
+            </div>
+          </div>
+
+          <!-- Fish Quality Metric Cards -->
+          <div class="metric-row" style="margin-top: 14px;">
+            <div class="metric-tile">
+              <div class="label">Total Fish Tracked</div>
+              <div class="value" id="dispTotalFish">1,842 <span class="unit">specimens</span></div>
+              <div class="subtext">Unique ByteTrack IDs</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">Estimated Biomass Density</div>
+              <div class="value" id="dispBiomassDensity">0.42 <span class="unit">kg/m³</span></div>
+              <div class="subtext">School Volume: High</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">Composite Health Quality Index (HQI)</div>
+              <div class="value" id="dispHQI" style="color:var(--green-radar)">94.8 <span class="unit">%</span></div>
+              <div class="subtext">GRADE A PRIME STOCK</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Species Breakdown Table & Quality Grading -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📊 Species Classification & Health Analysis</span>
+          </div>
+
+          <table class="species-table">
+            <thead>
+              <tr>
+                <th>Species Name</th>
+                <th>Count</th>
+                <th>Avg Size</th>
+                <th>Health Score</th>
+              </tr>
+            </thead>
+            <tbody id="speciesTableBody">
+              <tr>
+                <td><span class="species-badge mackerel">Indian Mackerel</span></td>
+                <td id="cntMackerel">684</td>
+                <td>22.4 cm</td>
+                <td style="color:var(--green-radar)">95.2% (Healthy)</td>
+              </tr>
+              <tr>
+                <td><span class="species-badge sardine">Oil Sardine</span></td>
+                <td id="cntSardine">892</td>
+                <td>14.8 cm</td>
+                <td style="color:var(--green-radar)">93.4% (Healthy)</td>
+              </tr>
+              <tr>
+                <td><span class="species-badge tuna">Yellowfin Tuna</span></td>
+                <td id="cntTuna">48</td>
+                <td>74.2 cm</td>
+                <td style="color:var(--green-radar)">98.5% (Prime)</td>
+              </tr>
+              <tr>
+                <td><span class="species-badge pomfret">Silver Pomfret</span></td>
+                <td id="cntPomfret">218</td>
+                <td>28.1 cm</td>
+                <td style="color:var(--green-radar)">92.8% (Healthy)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 18px;">
+            <div class="label" style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">FISH QUALITY GRADING BREAKDOWN</div>
+            <div style="display:flex; height:12px; border-radius:6px; overflow:hidden; background:#112238;">
+              <div style="width:82%; background:var(--green-radar);" title="Grade A Prime: 82%"></div>
+              <div style="width:14%; background:var(--amber-warn);" title="Grade B Moderate: 14%"></div>
+              <div style="width:4%; background:var(--red-danger);" title="Grade C Alert: 4%"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.68rem; margin-top:4px; color:var(--text-muted);">
+              <span>Grade A Prime (82%)</span>
+              <span>Grade B Commercial (14%)</span>
+              <span>Grade C Stressed/Parasite (4%)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: GOVERNMENT CENTRAL DASHBOARD ==================== -->
+    <section id="tab-gov" class="tab-content">
+      <!-- Official Government Banner -->
+      <div class="gov-banner">
+        <div class="gov-seal">
+          <div class="gov-emblem">🇮🇳</div>
+          <div class="gov-title-block">
+            <h2>NATIONAL MARINE FISHERIES & OCEAN REGULATORY AUTHORITY</h2>
+            <p>Live Marine Environmental Intelligence & Sovereign Fishery Telemetry Feed (DoF / CMFRI / Coast Guard)</p>
+          </div>
+        </div>
+        <div style="text-align: right; font-family: var(--font-mono); font-size: 0.75rem;">
+          <div style="color: var(--green-radar);">● SECURE UPLINK: TLS 1.3 / Ed25519</div>
+          <div style="color: #90b8e0;">STATION ID: AP-GOV-IND-042 | SECTOR: ARABIAN SEA</div>
+        </div>
+      </div>
+
+      <!-- Water Quality Telemetry Metrics -->
+      <div class="metric-row">
+        <div class="metric-tile">
+          <div class="label">Dissolved Oxygen (DO)</div>
+          <div class="value" id="dispDO">6.84 <span class="unit">mg/L</span></div>
+          <div class="subtext" id="statusDO">Safe Aerobic Zone (>5.0 mg/L)</div>
+        </div>
+        <div class="metric-tile">
+          <div class="label">Ocean Acidity (pH)</div>
+          <div class="value" id="dispPH">8.14 <span class="unit">pH</span></div>
+          <div class="subtext">Normal Marine Range</div>
+        </div>
+        <div class="metric-tile">
+          <div class="label">Salinity Level</div>
+          <div class="value" id="dispSalinity">34.8 <span class="unit">PSU</span></div>
+          <div class="subtext">Standard Ocean Salinity</div>
+        </div>
+        <div class="metric-tile">
+          <div class="label">Turbidity / Plume</div>
+          <div class="value" id="dispTurbidity">1.2 <span class="unit">NTU</span></div>
+          <div class="subtext">Clear Coastal Water</div>
+        </div>
+        <div class="metric-tile">
+          <div class="label">Chlorophyll-a (HABs)</div>
+          <div class="value" id="dispChlA">2.1 <span class="unit">μg/L</span></div>
+          <div class="subtext">Algal Bloom Risk: LOW</div>
+        </div>
+        <div class="metric-tile">
+          <div class="label">Microplastics</div>
+          <div class="value" id="dispPlastic" style="color:var(--amber-warn)">12.4 <span class="unit">particles/m³</span></div>
+          <div class="subtext warn">Laser Fluorometer Count</div>
+        </div>
+      </div>
+
+      <!-- Real-Time Telemetry Trend Charts & Live Government Log -->
+      <div class="grid-2col" style="margin-top: 16px;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📈 Real-Time Environmental Telemetry Stream</span>
+            <span class="card-badge">ROLLING 60s BUFFER</span>
+          </div>
+          <div style="height: 250px;">
+            <canvas id="envTelemetryChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📋 Official Regulatory Event & Compliance Audit Stream</span>
+            <span class="card-badge" id="eventCounterBadge">28 Events</span>
+          </div>
+          <div class="log-stream" id="govLogStream">
+            <!-- Dynamically populated entries -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: RADAR, AIS & MARINE COMMS ==================== -->
+    <section id="tab-radar" class="tab-content">
+      <div class="grid-main-side">
+        <!-- 360 FMCW Radar Sweep -->
+        <div class="card" style="text-align: center;">
+          <div class="card-header">
+            <span class="card-title">📡 Navigational S/X-Band FMCW Radar (16nm Range)</span>
+            <span class="card-badge" style="color:var(--green-radar);">SWEEP: 24 RPM</span>
+          </div>
+
+          <div style="padding: 10px 0;">
+            <canvas id="radarCanvas" width="320" height="320"></canvas>
+          </div>
+
+          <div style="display:flex; justify-content:space-around; font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono); margin-top:8px;">
+            <span>RANGE: 16 NM</span>
+            <span>BEARING: 000° REL</span>
+            <span>TARGETS TRACKED: <b id="radarTargetCount" style="color:var(--green-radar)">4 VESSELS</b></span>
+          </div>
+        </div>
+
+        <!-- AIS Target & Comms Matrix -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📻 Communications & AIS Transponder</span>
+            <span class="card-badge">CLASS-B AIS ACTIVE</span>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">Starlink LEO Uplink</div>
+              <div class="value">16.4 <span class="unit">Mbps</span></div>
+              <div class="subtext">Ping: 34ms | Loss: 0.0%</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">ISRO NavIC GNSS</div>
+              <div class="value">12 <span class="unit">Sats</span></div>
+              <div class="subtext">RTK Fixed: ±2.5 cm</div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-tile">
+              <div class="label">HF Digital Radio</div>
+              <div class="value">8.245 <span class="unit">MHz</span></div>
+              <div class="subtext">Range: 140 km Over-Horizon</div>
+            </div>
+            <div class="metric-tile">
+              <div class="label">UHF Drone/Mesh</div>
+              <div class="value">433.8 <span class="unit">MHz</span></div>
+              <div class="subtext">Inter-vessel Swarm Mesh</div>
+            </div>
+          </div>
+
+          <div class="card-header" style="margin-top: 14px;">
+            <span class="card-title">🚢 Tracked Surface Vessels (AIS / Radar)</span>
+          </div>
+
+          <table class="species-table">
+            <thead>
+              <tr>
+                <th>Vessel MMSI</th>
+                <th>Type</th>
+                <th>Distance</th>
+                <th>CPA / Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>419001248</td>
+                <td>Commercial Container</td>
+                <td>4.8 nm</td>
+                <td style="color:var(--green-radar)">Safe pass (CPA 2.1nm)</td>
+              </tr>
+              <tr>
+                <td>419008741</td>
+                <td>Trawler "Sea Pearl"</td>
+                <td>1.6 nm</td>
+                <td style="color:var(--amber-warn)">Proximity watch</td>
+              </tr>
+              <tr>
+                <td>419003399</td>
+                <td>Pilot Craft Cochin</td>
+                <td>6.2 nm</td>
+                <td style="color:var(--green-radar)">Harbour transit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 6: PHYSICS & PARAMETER CONTROLS ==================== -->
+    <section id="tab-controls" class="tab-content">
+      <div class="grid-2col">
+        <!-- Interactive Sliders -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🎛️ Dynamic Marine Environment Adjustments</span>
+            <span class="card-badge">INTERACTIVE PHYSICS</span>
+          </div>
+
+          <!-- Sub Depth Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>Submarine Operating Depth</span>
+              <span class="val-display" id="ctrlValDepth">45 m</span>
+            </div>
+            <input type="range" id="sliderDepth" min="0" max="150" value="45" step="1">
+          </div>
+
+          <!-- Solar Irradiance Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>Solar Irradiance (G)</span>
+              <span class="val-display" id="ctrlValSolar">850 W/m²</span>
+            </div>
+            <input type="range" id="sliderSolar" min="0" max="1200" value="850" step="10">
+          </div>
+
+          <!-- Vessel Speed Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>ASV Vessel Speed</span>
+              <span class="val-display" id="ctrlValSpeed">4.8 knots</span>
+            </div>
+            <input type="range" id="sliderSpeed" min="0" max="10" value="4.8" step="0.2">
+          </div>
+
+          <!-- Sea State (Beaufort) Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>Sea State (Beaufort Scale)</span>
+              <span class="val-display" id="ctrlValSeaState">State 2 (Smooth wavelets)</span>
+            </div>
+            <input type="range" id="sliderSeaState" min="0" max="6" value="2" step="1">
+          </div>
+
+          <!-- Fish Density Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>Fish Population Density</span>
+              <span class="val-display" id="ctrlValFishDensity">High (Abundant)</span>
+            </div>
+            <input type="range" id="sliderFishDensity" min="1" max="5" value="4" step="1">
+          </div>
+
+          <!-- Pollution / Microplastic Slider -->
+          <div class="control-group">
+            <div class="control-label-row">
+              <span>Ocean Pollution & Microplastic Level</span>
+              <span class="val-display" id="ctrlValPollution">Moderate (12 part/m³)</span>
+            </div>
+            <input type="range" id="sliderPollution" min="0" max="100" value="25" step="1">
+          </div>
+        </div>
+
+        <!-- Emergency & Failsafe Panel -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">⚠️ Failsafe & Operational Overrides</span>
+          </div>
+
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;">
+            Simulate mission contingencies, emergency winch recoveries, and autonomous failsafes.
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-tactical danger" style="justify-content:center; padding:12px;" onclick="triggerEmergencySnag()">
+              🪢 Simulate Umbilical High-Tension Snag (>450 N)
+            </button>
+            <button class="btn-tactical" style="justify-content:center; padding:12px;" onclick="triggerHypoxiaEvent()">
+              ☣️ Simulate Severe Hypoxic Dead Zone (DO < 2.0 mg/L)
+            </button>
+            <button class="btn-tactical" style="justify-content:center; padding:12px;" onclick="triggerIllegalTrawlerAlert()">
+              🚨 Simulate Illegal Trawler Entering Marine Sanctuary (MPA)
+            </button>
+            <button class="btn-tactical" style="justify-content:center; padding:12px; background:rgba(0,255,136,0.1); border-color:var(--green-radar); color:var(--green-radar);" onclick="resetAllFailsafes()">
+              ✅ Reset All Systems to Normal Autonomous Patrol
+            </button>
+          </div>
+
+          <div class="metric-tile" style="margin-top: 18px;">
+            <div class="label">Galvanic Umbilical Emergency Jettison</div>
+            <div class="value" style="font-size:1rem; color:var(--green-radar);">READY | ARMED SAFE</div>
+            <div class="subtext">Auto-buoyant UUV with VHF beacon recovery</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Simulation Engine Script -->
+  <script src="app.js"></script>
+</body>
+</html>
